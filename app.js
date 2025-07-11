@@ -1,12 +1,13 @@
-/* ------------------- UTILIDADES ------------------- */
-const $ = (selector) => document.querySelector(selector);
+// Utility functions
+const $cache = {};
+const $ = (selector) => $cache[selector] || ($cache[selector] = document.querySelector(selector));
 const $$ = (selector) => document.querySelectorAll(selector);
 const LS_KEY = "productReviews";
 const VOTE_LIMIT = 3;
 
 function throttle(func, limit) {
   let inThrottle;
-  return function (...args) {
+  return (...args) => {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
@@ -15,43 +16,28 @@ function throttle(func, limit) {
   };
 }
 
-// Throttle aplicado; verificar frequência correta para UX
-const saveToLocalStorage = throttle(() => {
+function saveToLocalStorage() {
   localStorage.setItem(LS_KEY, JSON.stringify(reviews));
-}, 500);
-
-const starIcons = (n) => {
-  let stars = "";
-  for (let i = 1; i <= 5; i++) {
-    if (n >= i) {
-      stars += '<i class="fa-solid fa-star"></i>';
-    } else if (n >= i - 0.5) {
-      stars += '<i class="fa-solid fa-star-half-stroke"></i>';
-    } else {
-      stars += '<i class="fa-regular fa-star"></i>';
-    }
-  }
-  return stars;
-};
-
-/* ------------------- DADOS ------------------- */
-let reviews = JSON.parse(localStorage.getItem(LS_KEY) || "[]").map(r => ({ votes: typeof r.votes === "number" ? r.votes : 0, ...r }));
-if (!reviews.length) {
-  reviews = [{
-    id: Date.now() - 1000,
-    name: "Exemplo",
-    email: "exemplo@email.com",
-    age: 20,
-    rating: 5,
-    comment: "Um exemplo de parâmetros.",
-    votes: 0,
-    date: Date.now() - 1728e5,
-  }];
-  saveToLocalStorage();
 }
+
+const starIcons = (n) => Array.from({ length: 5 }, (_, i) => {
+  const starValue = i + 1;
+  return n >= starValue ? `<i class="fa-solid fa-star" data-value="${starValue}"></i>` :
+         n >= starValue - 0.5 ? `<i class="fa-solid fa-star-half-stroke" data-value="${starValue}"></i>` :
+         `<i class="fa-regular fa-star" data-value="${starValue}"></i>`;
+}).join("");
+
+// Load or initialize reviews
+let reviews = JSON.parse(localStorage.getItem(LS_KEY)) || [];
 const userVotes = {};
 
-/* ------------------- RENDERIZAÇÃO ------------------- */
+function addReview(review) {
+  reviews.push(review);
+  saveToLocalStorage();
+  renderAvg();
+  renderList();
+}
+
 function renderAvg() {
   const total = reviews.length;
   const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / (total || 1);
@@ -63,62 +49,63 @@ function renderAvg() {
 function renderList() {
   const starFilter = $("#star-filter").value;
   const sortFilter = $("#sort-filter").value;
-
   let filtered = [...reviews];
   if (starFilter !== "all") filtered = filtered.filter(r => r.rating == starFilter);
-
   filtered.sort((a, b) => {
-    if (sortFilter === "recent") return b.date - a.date;
-    if (sortFilter === "old") return a.date - b.date;
-    if (sortFilter === "best") return b.rating - a.rating;
-    if (sortFilter === "most-voted") return b.votes - a.votes;
-    if (sortFilter === "least-voted") return a.votes - b.votes;
-    return 0;
+    switch (sortFilter) {
+      case "recent": return b.date - a.date;
+      case "old": return a.date - b.date;
+      case "best": return b.rating - a.rating;
+      case "most-voted": return b.votes - a.votes;
+      case "least-voted": return a.votes - b.votes;
+      default: return 0;
+    }
   });
-
   const listEl = $("#reviews-list");
-  listEl.innerHTML = "";
-
-  filtered.forEach(r => {
-    const itemEl = document.createElement("li");
-    itemEl.className = "review-item";
-    itemEl.setAttribute("data-id", r.id);
-    itemEl.setAttribute("tabindex", "0");
-    itemEl.innerHTML = `
+  listEl.innerHTML = filtered.map(r => `
+    <li class="review-item" data-id="${r.id}" tabindex="0">
       <div class="review-top">
         <span class="review-name">${r.name} (${r.age})</span>
         <span class="stars">${starIcons(r.rating)}</span>
       </div>
       <p>${r.comment}</p>
       <span class="review-date">${new Date(r.date).toLocaleDateString()}</span>
-    `;
-    listEl.appendChild(itemEl);
-  });
+      <div class="responses" data-id="${r.id}"></div>
+    </li>
+  `).join("");
 }
 
-/* ------------------- MODAIS ------------------- */
 function openModal(id) {
   const modal = $("#modal-" + id);
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
   document.body.classList.add("lock");
-  const firstInput = modal.querySelector("input, textarea, select, button");
-  if (firstInput) firstInput.focus();
+  modal.querySelector("input, textarea, select, button")?.focus();
+
+  // Garante as estrelas sempre que o modal de avaliação abrir
+  if (id === 'add' && $("#star-rating")) {
+    $("#star-rating").innerHTML = starIcons(0);
+  }
+
+  if (!modal.listenerAttached) {
+    modal.escHandler = (e) => e.key === "Escape" && closeModal(id);
+    modal.addEventListener("keydown", modal.escHandler);
+    modal.listenerAttached = true;
+  }
 }
 
 function closeModal(id) {
   const modal = $("#modal-" + id);
+  document.activeElement.blur();
   modal.classList.add("hidden");
   modal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("lock");
-}
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    const openModal = document.querySelector(".modal-backdrop:not(.hidden)");
-    if (openModal) closeModal(openModal.id.replace("modal-", ""));
+  if (modal.escHandler) {
+    modal.removeEventListener("keydown", modal.escHandler);
+    delete modal.listenerAttached;
+    delete modal.escHandler;
   }
-});
+}
 
 $$(".modal-close").forEach(btn =>
   btn.addEventListener("click", () => closeModal(btn.dataset.close))
@@ -132,9 +119,12 @@ $("#reviews-list").addEventListener("click", (e) => {
   $("#detail-stars").innerHTML = starIcons(r.rating);
   $("#detail-comment").textContent = r.comment;
   $("#detail-date").textContent = new Date(r.date).toLocaleString();
+  $("#detail-responses").innerHTML = renderResponses(r.id);
   $("#detail-votes").innerHTML = `
     <button class="vote-btn" data-id="${r.id}" data-vote="up">👍</button>
     <button class="vote-btn" data-id="${r.id}" data-vote="down">👎</button>
+    <button class="share-twitter" data-id="${r.id}">🐦</button>
+    <button class="share-facebook" data-id="${r.id}">📘</button>
     <span class="votes-count">${r.votes} votos</span>
   `;
   openModal("detail");
@@ -146,22 +136,23 @@ $("#detail-votes").addEventListener("click", (e) => {
   const id = +btn.dataset.id;
   const voteType = btn.dataset.vote;
   userVotes[id] = userVotes[id] || 0;
-  if (userVotes[id] >= VOTE_LIMIT) {
-    showToast("Limite de votos atingido para esta avaliação.", "error");
-    return;
-  }
+  if (userVotes[id] >= VOTE_LIMIT) return showToast("Limite de votos atingido para esta avaliação.", "error");
   const review = reviews.find(r => r.id === id);
-  if (voteType === "up") review.votes++;
-  if (voteType === "down") review.votes--;
+  voteType === "up" ? review.votes++ : review.votes--;
   userVotes[id]++;
   saveToLocalStorage();
   $("#detail-votes .votes-count").textContent = `${review.votes} votos`;
 });
 
-$("#btn-open-add").addEventListener("click", () => openModal("add"));
-$("#modal-add").addEventListener("click", (e) => {
-  if (e.target === $("#modal-add")) closeModal("add");
+$("#detail-votes").addEventListener("click", (e) => {
+  const btnTwitter = e.target.closest(".share-twitter");
+  const btnFacebook = e.target.closest(".share-facebook");
+  if (btnTwitter) shareOnTwitter(+btnTwitter.dataset.id);
+  if (btnFacebook) shareOnFacebook(+btnFacebook.dataset.id);
 });
+
+$("#btn-open-add").addEventListener("click", () => openModal("add"));
+$("#modal-add").addEventListener("click", (e) => e.target === $("#modal-add") && closeModal("add"));
 
 $("#form-add").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -173,51 +164,41 @@ $("#form-add").addEventListener("submit", (e) => {
     rating: +$("#add-rating").value,
     comment: $("#add-comment").value.trim(),
     date: Date.now(),
-    votes: 0
+    votes: 0,
+    responses: []
   };
-  const duplicate = reviews.some(r => r.name === newReview.name && r.comment === newReview.comment);
-  if (duplicate) {
-    showToast("Essa avaliação já existe.", "error");
-    return;
-  }
-  if (!newReview.name || !newReview.email || !newReview.comment || !newReview.rating) {
-    showToast("Preencha todos os campos!", "error");
-    return;
-  }
-  reviews.push(newReview);
-  saveToLocalStorage();
-  renderAvg();
-  renderList();
+  if (!newReview.name || !newReview.email || !newReview.comment || !newReview.rating)
+    return showToast("Preencha todos os campos!", "error");
+  addReview(newReview);
   closeModal("add");
   e.target.reset();
   showToast("Avaliação enviada com sucesso!", "success");
 });
 
-$("#star-rating").addEventListener("mouseover", (e) => {
-  if (e.target.tagName === "I") highlightStars(e.target.parentNode.children, e.target.dataset.value);
+// Estrelas (mouseover, click, mouseout)
+$("#modal-add").addEventListener("mouseover", (e) => {
+  if (e.target.closest('#star-rating') && e.target.tagName === "I") {
+    highlightStars(e.target.parentNode.children, e.target.dataset.value);
+  }
 });
-
-$("#star-rating").addEventListener("click", (e) => {
-  if (e.target.tagName === "I") {
+$("#modal-add").addEventListener("click", (e) => {
+  if (e.target.closest('#star-rating') && e.target.tagName === "I") {
     $("#add-rating").value = e.target.dataset.value;
     highlightStars(e.target.parentNode.children, e.target.dataset.value);
   }
 });
-
-$("#star-rating").addEventListener("mouseout", (e) => {
-  const hiddenRating = $("#add-rating").value;
-  highlightStars(e.target.parentNode.children, hiddenRating || 0);
+$("#modal-add").addEventListener("mouseout", (e) => {
+  if (e.target.closest('#star-rating')) {
+    highlightStars($("#star-rating").children, $("#add-rating").value || 0);
+  }
 });
 
 function highlightStars(stars, value) {
+  const numericValue = Number(value);
   [...stars].forEach(star => {
-    if (star.dataset.value <= value) {
-      star.classList.add("fa-solid");
-      star.classList.remove("fa-regular");
-    } else {
-      star.classList.add("fa-regular");
-      star.classList.remove("fa-solid");
-    }
+    const starVal = Number(star.dataset.value);
+    star.classList.toggle("fa-solid", starVal <= numericValue);
+    star.classList.toggle("fa-regular", starVal > numericValue);
   });
 }
 
@@ -230,13 +211,38 @@ function showToast(msg, type = "success") {
   toast.addEventListener("animationend", () => toast.remove());
 }
 
+function formatDate(timestamp) {
+  return new Date(timestamp).toLocaleString();
+}
+
+function renderResponses(reviewId) {
+  const review = reviews.find(r => r.id === reviewId);
+  return review.responses?.map(resp => `
+    <div class="response-item">
+      <p>${resp.text}</p>
+      <span class="response-date">${formatDate(resp.date)}</span>
+    </div>
+  `).join('') || "";
+}
+
+function shareOnTwitter(id) {
+  const review = reviews.find(r => r.id === id);
+  const text = encodeURIComponent(`"${review.comment}" — ${review.name}`);
+  window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+}
+
+function shareOnFacebook(id) {
+  const url = encodeURIComponent(window.location.href + `#review-${id}`);
+  window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank');
+}
+
 renderAvg();
 renderList();
 $("#star-filter").addEventListener("change", renderList);
 $("#sort-filter").addEventListener("change", renderList);
 
-const toastStyle = document.createElement("style");
-toastStyle.innerHTML = `
+document.head.insertAdjacentHTML("beforeend", `
+<style>
 .toast {
   position: fixed;
   bottom: 1.5rem;
@@ -256,5 +262,5 @@ toastStyle.innerHTML = `
   transform: translateY(0);
 }
 .toast.error { background: #f43f5e; }
-`;
-document.head.appendChild(toastStyle);
+</style>
+`);

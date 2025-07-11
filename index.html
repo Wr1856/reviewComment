@@ -1,110 +1,83 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Product Reviews</title>
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-  />
-  <link rel="stylesheet" href="styles.css"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avaliações de Produtos</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
 </head>
 <body>
-
   <div class="container">
-    <header class="header">
-      <h2>Avaliação Média: <span id="avg-rating">0.0</span></h2>
-      <div id="avg-stars"></div>
-      <span id="total-reviews">0 avaliações</span>
+    <header>
+      <h1>Avaliações</h1>
+      <div class="average">
+        <span id="avg-rating">0.0</span>
+        <div id="avg-stars"></div>
+        <p id="total-reviews">0 avaliações</p>
+      </div>
+      <div class="filters">
+        <select id="star-filter">
+          <option value="all">Todas as estrelas</option>
+          <option value="5">5 estrelas</option>
+          <option value="4">4 estrelas</option>
+          <option value="3">3 estrelas</option>
+          <option value="2">2 estrelas</option>
+          <option value="1">1 estrela</option>
+        </select>
+        <select id="sort-filter">
+          <option value="recent">Mais recente</option>
+          <option value="old">Mais antigo</option>
+          <option value="best">Melhor avaliado</option>
+          <option value="most-voted">Mais votado</option>
+          <option value="least-voted">Menos votado</option>
+        </select>
+        <button id="btn-open-add">Adicionar Avaliação</button>
+      </div>
     </header>
-
-    <div class="controls">
-      <select id="star-filter">
-        <option value="all">Todas estrelas</option>
-        <option value="5">5 estrelas</option>
-        <option value="4">4 estrelas</option>
-        <option value="3">3 estrelas</option>
-        <option value="2">2 estrelas</option>
-        <option value="1">1 estrela</option>
-      </select>
-
-      <select id="sort-filter">
-        <option value="recent">Mais recente</option>
-        <option value="old">Mais antigo</option>
-        <option value="best">Melhor avaliação</option>
-        <option value="most-voted">Mais votados</option>
-        <option value="least-voted">Menos votados</option>
-      </select>
-
-      <button id="btn-open-add">Adicionar Avaliação</button>
-    </div>
-
-    <ul id="reviews-list"></ul>
+    
+    <ul id="reviews-list" class="reviews-list"></ul>
   </div>
 
-  <!-- Modal de Detalhes -->
-  <div class="modal-backdrop hidden" id="modal-detail" aria-hidden="true">
-    <div class="modal-content" role="dialog" aria-modal="true">
-      <button class="modal-close" data-close="detail" aria-label="Fechar">✕</button>
-      <h3 id="detail-name"></h3>
-      <div id="detail-stars"></div>
-      <img id="detail-image" class="review-image" src="" alt="Imagem da avaliação" hidden/>
-      <p id="detail-comment"></p>
-      <time id="detail-date"></time>
-
-      <div id="detail-votes" class="vote-section"></div>
-      <div class="responses" data-id=""></div>
-    </div>
-  </div>
-
-  <!-- Modal de Adição -->
-  <div class="modal-backdrop hidden" id="modal-add" aria-hidden="true">
-    <div class="modal-content" role="dialog" aria-modal="true">
-      <button class="modal-close" data-close="add" aria-label="Fechar">✕</button>
+  <!-- Modal: Add Review -->
+  <div id="modal-add" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <button class="modal-close" data-close="add">&times;</button>
+      <h2>Nova Avaliação</h2>
       <form id="form-add">
-        <input
-          type="text"
-          id="add-name"
-          placeholder="Nome"
-          required
-        />
-        <input
-          type="email"
-          id="add-email"
-          placeholder="Email"
-          required
-        />
-        <input
-          type="number"
-          id="add-age"
-          placeholder="Idade"
-          min="1"
-          required
-        />
+        <label for="add-name">Nome:</label>
+        <input type="text" id="add-name" required />
+        
+        <label for="add-email">Email:</label>
+        <input type="email" id="add-email" required />
+        
+        <label for="add-age">Idade:</label>
+        <input type="number" id="add-age" required />
+        
+        <label for="add-comment">Comentário:</label>
+        <textarea id="add-comment" required></textarea>
+        
+<label for="add-rating">Avaliação:</label>
+<input type="hidden" id="add-rating" name="rating" />
+<div id="star-rating" class="star-input"></div>
 
-        <div id="star-rating" aria-label="Avaliação em estrelas">
-          <i class="fa-regular fa-star" data-value="1"></i>
-          <i class="fa-regular fa-star" data-value="2"></i>
-          <i class="fa-regular fa-star" data-value="3"></i>
-          <i class="fa-regular fa-star" data-value="4"></i>
-          <i class="fa-regular fa-star" data-value="5"></i>
-        </div>
-        <input type="hidden" id="add-rating" required/>
 
-        <textarea
-          id="add-comment"
-          placeholder="Comentário"
-          required
-        ></textarea>
-        <input
-          type="file"
-          id="add-image"
-          accept="image/*"
-        />
-
+        
         <button type="submit">Enviar</button>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Detail View -->
+  <div id="modal-detail" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <button class="modal-close" data-close="detail">&times;</button>
+      <h2 id="detail-name"></h2>
+      <div id="detail-stars"></div>
+      <p id="detail-comment"></p>
+      <p id="detail-date"></p>
+      <div id="detail-votes"></div>
+      <div id="detail-responses"></div>
     </div>
   </div>
 

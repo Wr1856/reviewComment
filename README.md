@@ -34,23 +34,4 @@ Aplicação simples para avaliações de produtos feita em HTML, CSS e JavaScrip
 
 * [Font Awesome 6](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css) via CDN
 
-## Dicas
-
-* Os dados NÃO vão para servidor, são salvos só no navegador do usuário.
-* Para resetar tudo, basta limpar o LocalStorage do navegador.
-
-## Exemplo de uso
-
-![Tela do modal de nova avaliação](exemplo-modal.png)
-
-## Possíveis melhorias
-
-* Validação mais avançada de campos
-* Limpeza automática de avaliações antigas
-* Backend (Node/Express) para salvar dados em banco
-* Upload de imagem do usuário
-* Paginação de avaliações
-
----
-
 **Desenvolvido por Wesley, 2025**
